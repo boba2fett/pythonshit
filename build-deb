@@ -1,0 +1,29 @@
+#!/bin/bash
+echo "mv fails can be ignored it's just for not building the db into the deb package"
+echo ""
+prod=$(grep -c 'PRE_PATH = ""' pythonshit/usr/local/bin/dcnotify pythonshit/usr/local/bin/dcshowon|awk -F: '{if ($2 != 1){print $2}}')
+if [ -z "$prod" ]
+then
+    mv pythonshit/etc/python-shit/dcdata.db dcdata.db
+    FILE=pythonshit/etc/python-shit/discordnotify.json
+    if [ -f "$FILE" ]
+    then
+        echo "building with template version"
+        mv pythonshit/etc/python-shit/discordnotify.json discordnotify.json
+        dpkg-deb --build pythonshit/ pythonshit.deb
+        mv discordnotify.json pythonshit/etc/python-shit/discordnotify.json
+        echo ""
+        echo "building with local version"
+        mv pythonshit/etc/python-shit/discordnotify.json.template discordnotify.json.template
+        dpkg-deb --build pythonshit/ pythonshitPRIV.deb
+        mv discordnotify.json.template pythonshit/etc/python-shit/discordnotify.json.template
+    else
+        mv pythonshit/etc/python-shit/discordnotify.json.template pythonshit/etc/python-shit/discordnotify.json
+        dpkg-deb --build pythonshit/ pythonshit.deb
+        mv pythonshit/etc/python-shit/discordnotify.json pythonshit/etc/python-shit/discordnotify.json.template
+    fi
+    
+    mv dcdata.db pythonshit/etc/python-shit/dcdata.db
+else
+    echo 'not prod! PRE_PATH is not ""'
+fi

@@ -1,0 +1,9 @@
+#!/bin/bash
+python3 -m pip install -U colorama pyfcm sqlalchemy nerodia
+systemctl daemon-reload
+DB=dcdata.db
+if [ -f "$DB" ]
+then
+    echo "restore dcdata.db"
+    mv $DB /etc/python-shit/dcdata.db
+fi

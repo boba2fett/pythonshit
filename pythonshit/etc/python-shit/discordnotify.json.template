@@ -1,0 +1,18 @@
+{
+    "server":"",
+    "log_server":"",
+    "log_server_token":"",
+    "api_key":"",
+    "registration_ids":
+    [
+        
+    ],
+    "names":
+    [
+        
+    ],
+    "db_ignore":
+    [
+        
+    ]
+}

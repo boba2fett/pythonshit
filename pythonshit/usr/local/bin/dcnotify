@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+import requests
+import time
+import json
+import os
+import sys
+import datetime
+from pyfcm import FCMNotification
+import logging
+from systemd.journal import JournalHandler
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Boolean
+from sqlalchemy.sql import func
+
+log = logging.getLogger("dcnotify")
+log.addHandler(JournalHandler())
+log.setLevel(logging.INFO)
+
+PRE_PATH = ""#"/home/bf/git/ShitCollection/python/pythonshit/pythonshit"
+
+
+with open(PRE_PATH+'/etc/python-shit/discordnotify.json', 'r') as json_file:
+    config = json.load(json_file)
+    log.info("Config loaded")
+
+ignore = config["db_ignore"]
+names = config["names"]
+
+push_service = FCMNotification(
+    api_key=config["api_key"])
+registration_ids = config["registration_ids"]
+headers = {
+    'User-Agent': 'Mozilla/51.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
+
+#DB
+engine = create_engine('sqlite:///'+PRE_PATH +
+                        '/etc/python-shit/dcdata.db')
+meta = MetaData()
+conn = engine.connect()
+
+dcOn = Table(
+'dcOn', meta,
+Column('timestamp', DateTime(timezone=True)),
+Column('username', String),
+Column('status', String),
+Column('channel_id', String),
+Column('deaf', Boolean),
+Column('mute', Boolean),
+)
+meta.create_all(engine)
+
+
+def mainloop():
+    lastData=None
+    while True:
+        try:
+            currtime=time.time()
+            distance=300 - currtime % 300
+            alligned_time=currtime+distance
+            time.sleep(distance) # wait to the next 5 min
+            timestamp=datetime.datetime.fromtimestamp(int(alligned_time)) # everyone gets same 5min alligned time
+            data = parseData(loadNewData())
+            sendOnlineMessages(data,lastData)
+            dbCollect(data,timestamp)
+            dbSend(data)
+        except Exception as e:
+            sendError(f"Fail in Mainloop pending 290s: {e}")
+            time.sleep(290)
+        finally:
+            try:
+                lastData=data
+            except Exception as e:
+                lastData=None
+
+def parseData(data):
+    data=[x for x in data if (not x['username'] in ignore) or (not x.get('channel_id') is None)]
+    for member in data:
+        if member.get('channel_id') is None:
+            member['channel_id']=None
+            member['deaf']=None
+            member['mute']=None
+        else:
+            member['deaf']=member['deaf'] or member['self_deaf']
+            member['mute']=member['mute'] or member['self_mute']
+    return data
+
+def loadNewData():
+    try:
+        dcData = requests.get(
+            config["server"], headers=headers).text  # link is under server settings widgets or similar
+    except Exception as e:
+        raise Exception(f"Server not Reachable: {e}")
+    dc = json.loads(dcData)
+    if (dc.get('members') is None):
+        raise Exception("Ratelimited")
+    data=dc['members']
+    return data
+
+def sendOnlineMessages(data,lastData):
+    offline=list()
+    for name in names:
+        if name not in [x['username'] for x in data] and lastData is not None and name in [x['username'] for x in lastData]:
+            sendOnlineMsg(name,"offline")
+            offline+=name
+    on=[x for x in data if x['username'] in names and x['username'] not in offline]
+    for member in on:
+        try:
+            req=conn.execute(dcOn.select().where(dcOn.c.username==member["username"]).order_by(dcOn.c.timestamp.desc())).first()
+            if lastData is None or member["username"] not in [x['username'] for x in lastData] or req["status"] != member["status"]:
+                sendOnlineMsg(member["username"],member["status"])
+        except Exception as e:
+            log.error(f'Online Message failed because of [{str(e)}]')
+
+def sendOnlineMsg(name,status):
+    try:
+        message_title = f'{datetime.datetime.now()}'
+        message_body = f'{name} now {status}'
+        push_service.notify_multiple_devices(
+            registration_ids=registration_ids, message_title=message_title, message_body=message_body)
+        log.info(f'Online Message gesendet [name={name}]')
+    except Exception as e:
+        log.error(f'Online Message failed because of [{str(e)}]')
+
+
+def dbCollect(data,time):
+    for member in data:
+        try:
+            conn.execute(dcOn.insert().values(
+                    timestamp=time,
+                    username=member["username"],
+                    status=member["status"],
+                    channel_id=member["channel_id"],
+                    deaf=member["deaf"],
+                    mute=member["mute"]
+                )
+            )
+        except Exception as e:
+            sendError(Exception(f"DataCollection unsuccesful, because of {str(e)}"))
+
+def dbSend(data):
+    try:
+        for member in data:
+            req=requests.get(config["log_server"], headers=headers, params=
+                {
+                    "t":config["log_server_token"],
+                    "username": member["username"],
+                    "status": member["status"],
+                    "channel_id": member["channel_id"],
+                    "deaf": member["deaf"],
+                    "mute": member["mute"]
+                }
+            )
+            if req.status_code != 200:
+                raise Exception(f"No 200 return Code, actual: {req.status_code}")
+    except Exception as e:
+            sendError(Exception(f"LogServer was not reached: {str(e)}"))
+
+
+def sendError(e):
+    try:
+        message_title = f'{datetime.datetime.now()}'
+        message_body = str(e)
+        push_service.notify_multiple_devices(
+            registration_ids=registration_ids, message_title=message_title, message_body=message_body)
+        log.warning(f'Error Message gesendet für [{str(e)}]')
+
+    except Exception as e2:
+        log.error(
+            f'Error Message failed because of [{str(e2)}] for [{str(e)}]')
+
+try:
+    req=conn.execute(dcOn.select().where(dcOn.c.username=="DlieBG").order_by(dcOn.c.timestamp.desc())).first()
+    if req is None:
+        sendError(Exception(f"Started, db seems to work, no last entry for DlieBG found"))
+    else:
+        sendError(Exception(f"Started, db seems to work, DlieBGs last entry is from: {req['timestamp']}"))
+except Exception as e:
+    sendError(Exception(f"Started, db doesn't seem to work: {e}"))
+mainloop()

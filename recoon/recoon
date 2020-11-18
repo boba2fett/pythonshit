@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+import requests
+import time
+import json
+import os
+import sys
+import datetime
+from systemd.journal import JournalHandler
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Boolean
+from sqlalchemy.sql import func
+
+#import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as dates
+
+
+engine = create_engine('sqlite:///dcdata.db')
+meta = MetaData()
+conn = engine.connect()
+
+dcOn = Table(
+'dcOn', meta,
+Column('timestamp', DateTime(timezone=True)),
+Column('username', String),
+Column('status', String),
+Column('channel_id', String),
+Column('deaf', Boolean),
+Column('mute', Boolean),
+)
+meta.create_all(engine)
+
+def total_per_day_per_user():
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+    users=list(conn.execute("SELECT DISTINCT username FROM dcOn"))
+    days=list(conn.execute("SELECT DISTINCT date(timestamp) FROm dcOn ORDER BY date(timestamp)"))
+    for user in [x[0] for x in users]:
+        datax=list()
+        datay=list()
+        for day in [x[0] for x in days]:
+            res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND date(timestamp)="{day}"'))
+            y,m,d=day.split("-")
+            t=datetime.datetime(year=int(y),month=int(m),day=int(d))
+            datax+=[t]
+            datay+=res[0]
+        datax = dates.date2num(datax)
+        ax1.plot(datax,datay,label=user,linewidth=1)
+    plt.xlabel("Day")
+    plt.ylabel("Minutes online")
+    plt.xticks([datetime.datetime(year=int(t[0]),month=int(t[1]),day=int(t[2])) for t in [(days[i][0].split("-")) for i in range(0,len(days))]])
+    plt.yticks([x for x in range(0,int(24*60/5),int(60/5))],[5*x for x in range(0,int(24*60/5),int(60/5))])
+    myFmt = dates.DateFormatter('%Y-%m-%d')
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title(label="Total per day per user")
+    plt.show()
+
+def total_per_day():
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+
+    days=list(conn.execute("SELECT DISTINCT date(timestamp) FROm dcOn ORDER BY date(timestamp)"))
+    datax=list()
+    datay=list()
+    for day in [x[0] for x in days]:
+        res=list(conn.execute(f'SELECT COUNT(DISTINCT username) FROM dcOn WHERE date(timestamp)="{day}"'))
+        y,m,d=day.split("-")
+        t=datetime.datetime(year=int(y),month=int(m),day=int(d))
+        datax+=[t]
+        datay+=res[0]
+    datax = dates.date2num(datax)
+    ax1.plot(datax,datay,label="Total per day",linewidth=1)
+    plt.xlabel("Day")
+    plt.ylabel("Number of unique users")
+    plt.xticks([datetime.datetime(year=int(t[0]),month=int(t[1]),day=int(t[2])) for t in [(days[i][0].split("-")) for i in range(0,len(days))]])
+    myFmt = dates.DateFormatter('%Y-%m-%d')
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per day")
+    plt.show()
+
+def total_per_weekday():#ignore
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+
+    days=list(conn.execute("SELECT DISTINCT strftime('%w',timestamp) FROm dcOn ORDER BY strftime('%w',timestamp)"))
+    datax=list()
+    datay=list()
+    for day in [x[0] for x in days]:
+        res=list(conn.execute(f'SELECT COUNT(DISTINCT username) FROM dcOn WHERE strftime("%w",timestamp)="{day}"'))
+        datax+=[day]
+        datay+=res[0]
+    ax1.plot(datax,datay,label="Total per weekday",linewidth=1)
+    xticks=["So","Mo","Di","Mi","Do","Fr","Sa"]
+    plt.xlabel("Weekday")
+    plt.ylabel("Number of users")
+    plt.xticks([x for x in range(0,7)], xticks)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per weekday")
+    plt.show()
+
+def total_per_weekday_per_user():
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+
+    users=list(conn.execute("SELECT DISTINCT username FROM dcOn"))
+    days=list(conn.execute("SELECT DISTINCT strftime('%w',timestamp) FROm dcOn ORDER BY strftime('%w',timestamp)"))
+    datax=list()
+    for user in [x[0] for x in users]:
+        datax=list()
+        datay=list()
+        for day in [x[0] for x in days]:
+            res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND strftime("%w",timestamp)="{day}"'))
+            datax+=[day]
+            datay+=res[0]
+        ax1.plot(datax,datay,label=user,linewidth=1)
+    xticks=["So","Mo","Di","Mi","Do","Fr","Sa"]
+    plt.xticks([x for x in range(0,7)], [xticks[x] for x in range(0,7)])
+    plt.xlabel("Weekday")
+    plt.yticks([x for x in range(0,int(24*60/5),int(60/5))],[5*x for x in range(0,int(24*60/5),int(60/5))])
+    plt.ylabel("Minutes online")
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per weekday per user")
+    plt.show()
+
+def total_per_user_per_time():
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+
+    users=list(conn.execute("SELECT DISTINCT username FROM dcOn"))
+    times=list(conn.execute("SELECT DISTINCT time(timestamp) FROM dcOn ORDER BY time(timestamp)"))
+    for user in [x[0] for x in users]:
+        datax=list()
+        datay=list()
+        for time in [x[0] for x in times]:
+            res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND time(timestamp)="{time}"'))
+            h,m,_=time.split(":")
+            t=datetime.datetime(year=1970,month=1,day=1,hour=int(h),minute=int(m))
+            datax+=[t]
+            datay+=res[0]
+        datax = dates.date2num(datax)
+        ax1.plot(datax,datay,label=user,linewidth=1)
+    plt.xlabel("Time")
+    plt.ylabel("Hits Online at this time")
+    plt.xticks([datetime.datetime(year=1970,month=1,day=1,hour=h)for h in range (0,24)])
+    myFmt = dates.DateFormatter('%H:%M')
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per time per user")
+    plt.show()
+
+
+def percentage_per_user_per_time():#ignore
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+
+    users=list(conn.execute("SELECT DISTINCT username FROM dcOn"))
+    times=list(conn.execute("SELECT DISTINCT time(timestamp) FROM dcOn ORDER BY time(timestamp)"))
+    for user in [x[0] for x in users]:
+        res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}"'))
+        total=float(res[0][0])
+        datax=list()
+        datay=list()
+        for time in [x[0] for x in times]:
+            res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND time(timestamp)="{time}"'))
+            h,m,_=time.split(":")
+            t=datetime.datetime(year=1970,month=1,day=1,hour=int(h),minute=int(m))
+            datax+=[t]
+            datay+=res[0]
+        datax = dates.date2num(datax)
+        if total>0:
+            ax1.plot(datax,[x/total for x in datay],label=user,linewidth=1)
+    plt.xlabel("Time")
+    plt.ylabel("Percentage online")
+    plt.xticks([datetime.datetime(year=1970,month=1,day=1,hour=h)for h in range (0,24)])
+    myFmt = dates.DateFormatter('%H:%M')
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per time per user in percentage")
+    plt.show()
+
+def total_per_time():
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+    times=list(conn.execute("SELECT DISTINCT time(timestamp) FROM dcOn ORDER BY time(timestamp)"))
+    datax=list()
+    datay=list()
+    for time in [x[0] for x in times]:
+        res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE time(timestamp)="{time}"'))
+        h,m,_=time.split(":")
+        t=datetime.datetime(year=1970,month=1,day=1,hour=int(h),minute=int(m))
+        datax+=[t]
+        datay+=res[0]
+    datax = dates.date2num(datax)
+    ax1.plot(datax,datay,label="Total",linewidth=1)
+    plt.xlabel("Time")
+    plt.ylabel("Hits Online at this time all users allocated")
+    plt.xticks([datetime.datetime(year=1970,month=1,day=1,hour=h)for h in range (0,24)])
+    myFmt = dates.DateFormatter('%H:%M')
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.legend(bbox_to_anchor=(1,1), loc="upper left")
+    plt.title("Total per time")
+    plt.show()
+
+total_per_day_per_user()
+total_per_day()
+
+##total_per_weekday()
+total_per_weekday_per_user()
+
+total_per_user_per_time()
+##percentage_per_user_per_time()
+total_per_time()

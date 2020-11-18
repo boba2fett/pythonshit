@@ -1,0 +1,8 @@
+Package: pythonshit
+Version: 1.0-1
+Section: base
+Priority: optional
+Architecture: all
+Depends: python3,python3-systemd
+Maintainer: b2f3t <boba2002fett@gmail.com>
+Description: Python Shit Collections

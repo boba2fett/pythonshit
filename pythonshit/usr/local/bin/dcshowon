@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+import requests
+import time
+import json
+import os, sys
+from datetime import datetime
+
+PRE_PATH = ""#"/home/bf/git/ShitCollection/python/pythonshit"
+
+headers = {'User-Agent': 'Mozilla/51.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
+
+with open(PRE_PATH+'/etc/python-shit/discordnotify.json', 'r') as json_file:
+  config = json.load(json_file)
+  
+dcData = requests.get(config["server"], headers=headers).text
+dc = json.loads(dcData)
+if not (dc.get('members') is None):
+  on=[f"{x['username']}: {x['status']}, {x['channel_id']}, {x['deaf']}, {x['mute']}" if not (x.get('channel_id') is None) else f"{x['username']}: {x['status']}" for x in dc['members']]
+  for name in on:
+      print(name)
+else:
+  print("ratelimited XD")

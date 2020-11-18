@@ -1,0 +1,15 @@
+[Unit]
+
+Description=descriptione
+
+After=multi-user.target
+
+[Service]
+
+Type=idle
+
+ExecStart=/usr/local/bin/dcnotify
+
+[Install]
+
+WantedBy=multi-user.target
