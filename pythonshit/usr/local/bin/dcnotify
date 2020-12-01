@@ -15,7 +15,7 @@ log = logging.getLogger("dcnotify")
 log.addHandler(JournalHandler())
 log.setLevel(logging.INFO)
 
-PRE_PATH = ""#"/home/bf/git/ShitCollection/python/pythonshit/pythonshit"
+PRE_PATH = ""#"/home/bf/git/pythonshit/pythonshit"
 
 
 with open(PRE_PATH+'/etc/python-shit/discordnotify.json', 'r') as json_file:
@@ -45,6 +45,7 @@ Column('status', String),
 Column('channel_id', String),
 Column('deaf', Boolean),
 Column('mute', Boolean),
+Column('game',String)
 )
 meta.create_all(engine)
 
@@ -81,6 +82,13 @@ def parseData(data):
         else:
             member['deaf']=member['deaf'] or member['self_deaf']
             member['mute']=member['mute'] or member['self_mute']
+        if member.get('game') is None:
+            member['game']=None
+        else:
+            if member['game'].get('name') is None:
+                member['game']=None
+            else:
+                member['game']=member['game']['name']
     return data
 
 def loadNewData():
@@ -130,7 +138,8 @@ def dbCollect(data,time):
                     status=member["status"],
                     channel_id=member["channel_id"],
                     deaf=member["deaf"],
-                    mute=member["mute"]
+                    mute=member["mute"],
+                    game=member["game"]
                 )
             )
         except Exception as e:
@@ -146,7 +155,8 @@ def dbSend(data):
                     "status": member["status"],
                     "channel_id": member["channel_id"],
                     "deaf": member["deaf"],
-                    "mute": member["mute"]
+                    "mute": member["mute"],
+                    "game": member["game"]
                 }
             )
             if req.status_code != 200:
