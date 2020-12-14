@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 -m pip install -U colorama pyfcm sqlalchemy nerodia
+python3 -m pip install -U colorama pyfcm sqlalchemy nerodia pynput
 systemctl daemon-reload
 DB=dcdata.db
 if [ -f "$DB" ]
