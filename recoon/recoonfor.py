@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from matplotlib.dates import DAYS_PER_MONTH
+from matplotlib.ticker import scale_range
 import requests
 import time
 import json
@@ -179,23 +180,22 @@ def total():
     colors = plt.rcParams["axes.prop_cycle"]()
     fig = plt.figure()
     ax1 = fig.add_subplot(1,1,1)
-    data=list()
-    bar_label=list()
-    y_pos=[0]
-    
+    bars=list()
+    categories=list()
+    y_pos = range(len(categories))
+    accOffset=0
+    if len(users)>0:
+        offset=0.8/len(users)
+        accOffset=-0.3
     for user in users:
-        data+=[len(list(conn.execute(f'SELECT DISTINCT time(timestamp) FROM dcOn WHERE username = "{user}" ORDER BY time(timestamp)')))]
-        bar_label+=[f"{user}: Unique Days"]
-        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}"'))[0]
-        bar_label+=[f"{user}: Total"]
-        for status in states:
-            data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND status="{status}"'))[0]
-            bar_label+=[f"{user}: {status}"]
-        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND mute = 1'))[0]
-        bar_label+=[f"{user}: muted"]
-        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND channel_id IS NOT NULL AND mute != 1'))[0]
-        bar_label+=[f"{user}: channel"]
+        
+        categories=list()
+        data=list()
 
+        categories+=["Unique Days"]
+        data+=[len(list(conn.execute(f'SELECT DISTINCT time(timestamp) FROM dcOn WHERE username = "{user}" ORDER BY time(timestamp)')))]
+
+        categories+=["lonley"]
         temp=0
         times=list(conn.execute(f'SELECT timestamp FROM dcOn WHERE username = "{user}" AND channel_id IS NOT NULL AND channel_id != "696401199120777247"'))
         times=[x[0] for x in times]
@@ -204,15 +204,31 @@ def total():
             if res[0]==1:
                 temp+=1
         data+=[temp]
-        bar_label+=[f"{user}: lonley"]
 
-        y_pos = np.arange(len(bar_label))
+        categories+=["muted"]
+        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND mute = 1'))[0]
 
+        categories+=["idle"]
+        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND status="idle"'))[0]
+
+        categories+=["dnd"]
+        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND status="dnd"'))[0]
+
+        categories+=["channel"]
+        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND channel_id IS NOT NULL AND mute != 1'))[0]
+
+        categories+=["Total"]
+        data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}"'))[0]
+
+        y_pos = range(len(categories))
         c = next(colors)["color"]
-        bar=ax1.barh(y_pos, data, label=user, color=c,edgecolor=c)
+        bar=ax1.barh([y+accOffset for y in y_pos], data, height=offset,label=user, color=c,edgecolor=c,alpha=0.5)
+        bars+=[bar]
+        accOffset+=offset
+    ax1.legend(labels=users, bbox_to_anchor=(1,1),loc='upper right')
     plt.ylabel("Category")
     plt.xlabel("Hits")
-    plt.yticks(y_pos,bar_label)
+    plt.yticks(y_pos,categories)
     plt.legend(bbox_to_anchor=(1,1), loc="upper left")
     plt.title(label="Total")
     plt.show()
@@ -239,20 +255,25 @@ def per_day_median2():
     colors = plt.rcParams["axes.prop_cycle"]()
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
+    accOffset=0
+    if len(users)>0:
+        offset=0.6/len(users)
+        accOffset=-0.2
     for user in users:
         data=list()
         for day in [x[0] for x in days]:
             res=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE username = "{user}" AND date(timestamp)="{day}"'))
             data+=res[0]
         data=[x*5/60 for x in data]
-        bp=ax1.boxplot(data, vert=0,patch_artist=True)
+        bp=ax1.boxplot(data, vert=0,patch_artist=True,positions=[accOffset], widths=offset)
         c = next(colors)["color"]
         for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
             plt.setp(bp[element], color=c, alpha=0.5)
         for patch in bp['boxes']:
             patch.set(facecolor=c)
         bps+=[bp]
-    
+        accOffset+=offset
+    plt.yticks([])
     ax1.legend([bp["boxes"][0] for bp in bps], users, bbox_to_anchor=(1,1),loc='upper right')
     plt.xlabel("Hours online")
     plt.title(label=f"Total Hours from {user}")
@@ -302,6 +323,10 @@ def per_weekday_median3():
     fig.suptitle(f"Hours online")
     ax1 = fig.add_subplot(111)
     bps=list()
+    accOffset=0
+    if len(users)>0:
+        offset=0.6/len(users)
+        accOffset=-0.2
     for user in users:
         boxdata=list()
         for w in range(0,7):
@@ -313,12 +338,13 @@ def per_weekday_median3():
             data=[x*5/60 for x in data]
             boxdata+=[data]
         c = next(colors)["color"]
-        bp=ax1.boxplot(boxdata, vert=0,patch_artist=True)
+        bp=ax1.boxplot(boxdata, vert=0,patch_artist=True,positions=[y+accOffset for y in range(1,8)], widths=offset)
         for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
             plt.setp(bp[element], color=c, alpha=0.5)
         for patch in bp['boxes']:
             patch.set(facecolor=c)
         bps+=[bp]
+        accOffset+=offset
     
     ax1.legend([bp["boxes"][0] for bp in bps], users, bbox_to_anchor=(1,1),loc='upper right')
     plt.yticks(range(1,8),["So","Mo","Di","Mi","Do","Fr","Sa"])
@@ -326,11 +352,11 @@ def per_weekday_median3():
     plt.show()
 
 
-#per_day()
-#per_weekday()
-#per_time()
+per_day()
+per_weekday()
+per_time()
 total()
 ##per_day_median()
-#per_day_median2()
+per_day_median2()
 ##per_weekday_median2()
-#per_weekday_median3()
+per_weekday_median3()
