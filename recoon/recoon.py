@@ -47,9 +47,6 @@ def total_per_day():
     ax1.plot(datax,datay,label="Total per day",linewidth=1)
     plt.xlabel("Day")
     plt.ylabel("Number of unique users")
-    plt.xticks([datetime.datetime(year=int(t[0]),month=int(t[1]),day=int(t[2])) for t in [(days[i][0].split("-")) for i in range(0,len(days))]])
-    myFmt = dates.DateFormatter('%Y-%m-%d')
-    plt.gca().xaxis.set_major_formatter(myFmt)
     plt.legend(bbox_to_anchor=(1,1), loc="upper left")
     plt.title("Total per day")
     plt.show()
@@ -114,6 +111,41 @@ def total_per_day_median():
     plt.title(label=f"Total Minutes")
     plt.show()
 
+def total():
+    colors = plt.rcParams["axes.prop_cycle"]()
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1,1,1)
+    categories=list()
+    data=list()
+
+    categories+=["Unique Days"]
+    data+=[len(list(conn.execute(f'SELECT DISTINCT date(timestamp) FROM dcOn ORDER BY time(timestamp)')))]
+
+    categories+=["muted"]
+    data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE mute = 1'))[0]
+
+    categories+=["idle"]
+    data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE status="idle"'))[0]
+
+    categories+=["dnd"]
+    data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE status="dnd"'))[0]
+
+    categories+=["channel"]
+    data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn WHERE channel_id IS NOT NULL AND mute != 1'))[0]
+
+    categories+=["Total"]
+    data+=list(conn.execute(f'SELECT COUNT(*) FROM dcOn'))[0]
+
+    y_pos = range(len(categories))
+    c = next(colors)["color"]
+    ax1.barh([y for y in y_pos], data, color=c,edgecolor=c,alpha=0.5)
+    plt.ylabel("Category")
+    plt.xlabel("Hits")
+    plt.yticks(y_pos,categories)
+    plt.title(label="Total")
+    plt.show()
+
+total()
 total_per_day()
 total_per_day_median()
 total_per_weekday()

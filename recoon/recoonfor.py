@@ -193,7 +193,7 @@ def total():
         data=list()
 
         categories+=["Unique Days"]
-        data+=[len(list(conn.execute(f'SELECT DISTINCT time(timestamp) FROM dcOn WHERE username = "{user}" ORDER BY time(timestamp)')))]
+        data+=[len(list(conn.execute(f'SELECT DISTINCT date(timestamp) FROM dcOn WHERE username = "{user}" ORDER BY time(timestamp)')))]
 
         categories+=["lonley"]
         temp=0
