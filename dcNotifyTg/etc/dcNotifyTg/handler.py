@@ -2,6 +2,8 @@ from dbapi import DbApi
 from telegram import ParseMode
 from config import CONFIG
 
+dbApi = DbApi(CONFIG["server_db"], CONFIG["server_user"], CONFIG["server_pass"])
+
 def start(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Hello There!\n/help for help")
 
@@ -31,10 +33,10 @@ last_name: {last_name}
 def status(update, context):
     chat_id = update.effective_chat.id
     if chat_id == CONFIG["chat_id"]:
-        msg = DbApi.adminStatus()
+        msg = dbApi.adminStatus()
         context.bot.send_message(text=msg,chat_id=chat_id)
     else:
-        msg = DbApi.status()
+        msg = "This is maybe not the right chat"
         context.bot.send_message(text=msg,chat_id=chat_id)
 
 def on_error(update, context):
@@ -43,7 +45,7 @@ def on_error(update, context):
 
 def subscribtions(update, context):
     chat_id=update.effective_chat.id
-    msg = str([x[0] for x in DbApi.chatSubscribedUsers(chat_id)])
+    msg = str(dbApi.chatSubscribedUsers(chat_id))
     context.bot.send_message(chat_id=chat_id, text=msg)
 
 def subscribe(update, context):
@@ -56,7 +58,7 @@ def subscribe(update, context):
         name = text.replace("/subscribe ","")
         if name:
             try:
-                DbApi.newSubscriber(chat_id,name, username, first_name, last_name)
+                dbApi.newSubscriber(chat_id,name, username, first_name, last_name)
                 msg=f"Subscribed to: {name}"
             except Exception as ex:
                 msg=f"Could not subscribe to: {name}\nCheck your /subsribtions"+f"\n{CONFIG['env']}: because of {ex}" if CONFIG["env"]=="dev" else ""
@@ -73,7 +75,7 @@ def unsubscribe(update, context):
         name = text.replace("/unsubscribe ","")
         if name:
             try:
-                DbApi.rmSubscriber(chat_id,name)
+                dbApi.rmSubscriber(chat_id,name)
                 msg=f"Unsubscribed from: {name}"
             except Exception as ex:
                 msg=f"Could not unsubscribe from: {name}\nCheck your /subsribtions"+f"\n{CONFIG['env']}: because of {ex}" if CONFIG["env"]=="dev" else ""

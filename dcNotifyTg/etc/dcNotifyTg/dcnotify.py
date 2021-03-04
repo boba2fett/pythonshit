@@ -3,39 +3,37 @@ import time
 import datetime
 import sys, os
 
+
 def mainloop():
     lastData=None
     while True:
-        try:
+        #try:
             currtime=time.time()
             distance=300 - currtime % 300
             alligned_time=currtime+distance
             time.sleep(distance) # wait to the next 5 min
-            timestamp=datetime.datetime.fromtimestamp(int(alligned_time)) # everyone gets same 5min alligned time
+            timestamp=int(alligned_time) # everyone gets same 5min alligned time
 
-            data = DcApi.getData()
-            Send.sendOnlineMessages(data,lastData)
-            try:
-                DbApi.dbCollect(data,timestamp)
-            except Exception as e:
-                Send.sendError(Exception(f"DataCollection unsuccesful, because of {str(e)}"))
-            try:
-                DbApi.dbSend(data)
-            except Exception as e:
-                Send.sendError(Exception(f"LogServer was not reached: {str(e)}"))
-        except Exception as e:
-            Send.sendError(f"Fail in Mainloop pending 290s: {e}")
-            time.sleep(290)
-        finally:
-            try:
-                lastData=data
-            except Exception as e:
-                lastData=None
+            data = dcApi.getData(timestamp)
+            send.sendOnlineMessages(data,lastData)
+            #try:
+            dbApi.dbCollect(data)
+            #except Exception as e:
+            #    send.sendError(Exception(f"DataCollection unsuccesful, because of {str(e)}"))
+        #except Exception as e:
+            #send.sendError(f"Fail in Mainloop pending 290s: {e}")
+            #time.sleep(290)
+        #finally:
+            #try:
+            lastData=data
+            #except Exception as e:
+                #lastData=None
 
 def main():
 
     print(f"starting dcnotify in {CONFIG['env']}")
-    Send.sendError(DbApi.test())
+    dbApi.test()
+    #send.sendError(dbApi.test())
     mainloop()
 
 if __name__ == '__main__':
@@ -47,4 +45,7 @@ if __name__ == '__main__':
     from dbapi import DbApi
     from send import Send
     import handler
+    dbApi = DbApi(CONFIG["server_db"], CONFIG["server_user"], CONFIG["server_pass"])
+    dcApi = DcApi(CONFIG["dc_server"])
+    send = Send(CONFIG["bot_token"], CONFIG["chat_id"], dbApi)
     main()

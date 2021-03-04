@@ -1,0 +1,23 @@
+POST http://localhost:6969/dcNotifyTg2Fett/testcol/insert HTTP/1.1
+content-type: application/json
+
+[{
+    "val": 1
+}]
+###
+POST http://localhost:6969/dcNotifyTg2Fett/testcol/filter HTTP/1.1
+Authorization: Basic U P
+content-type: application/json
+
+{
+    "val": {"$regex": "^test.*"}
+}
+###
+GET http://localhost:6969/dcNotifyTg2Fett/log HTTP/1.1
+Authorization: Basic U P
+###
+GET http://localhost:6969/dcNotifyTg2Fett HTTP/1.1
+Authorization: Basic U P
+###
+GET http://localhost:6969 HTTP/1.1
+Authorization: Basic U P

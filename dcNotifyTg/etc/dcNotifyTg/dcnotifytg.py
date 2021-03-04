@@ -23,11 +23,11 @@ def main():
     dp.add_handler(CommandHandler('help', handler.help))
     dp.add_handler(CommandHandler('info', handler.info))
     dp.add_handler(CommandHandler('status', handler.status))
-    dp.add_handler(CommandHandler('echo', handler.echo))
+    #dp.add_handler(CommandHandler('echo', handler.echo))
     dp.add_handler(CommandHandler('subscribe', handler.subscribe))
     dp.add_handler(CommandHandler('unsubscribe', handler.unsubscribe))
     dp.add_handler(CommandHandler('subscribtions', handler.subscribtions))
-    dp.add_handler(MessageHandler(Filters.text & (~Filters.command), handler.echo))
+    #dp.add_handler(MessageHandler(Filters.text & (~Filters.command), handler.echo))
     dp.add_error_handler(handler.on_error)
     
     print("Bot starts")

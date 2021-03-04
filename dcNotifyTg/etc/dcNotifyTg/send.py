@@ -7,41 +7,44 @@ import datetime
 from dbapi import DbApi
 
 class Send():
-    def sendError(error):
+
+    def __init__(self, bot_token, admin_chat_id, dbApi):
+        self.bot = telegram.Bot(token=bot_token)
+        self.dbApi = dbApi
+        self.admin_chat = admin_chat_id
+
+    def sendError(self, error):
         msg=f'{datetime.datetime.now()}\n{error}'
         try:
-            bot = telegram.Bot(token=CONFIG["bot_token"])
-            bot.sendMessage(chat_id=CONFIG["chat_id"], text=msg)
+            self.bot.sendMessage(chat_id=self.admin_chat, text=msg)
             print(f"Send {msg}")
         except Exception as ex:
             print(f'{datetime.datetime.now()} Could not send [{error}], because of {ex}')
 
-    def sendOnlineMessages(data,lastData):
+    def sendOnlineMessages(self, data,lastData):
         offline=list()
-        names = DbApi.subscribedUsers()
-        names = [x[0] for x in names]
+        names = self.dbApi.subscribedUsers()
         for name in names:
             if name not in [x['username'] for x in data] and lastData is not None and name in [x['username'] for x in lastData]:
-                Send.sendOnlineMsg(name,"offline")
+                self.sendOnlineMsg(name,"offline")
                 offline+=name
         on=[x for x in data if x['username'] in names and x['username'] not in offline]
         for member in on:
             try:
-                oldMember = DbApi.lastState(member["username"])
+                oldMember = self.dbApi.lastState(member["username"])
                 if lastData is None or member["username"] not in [x['username'] for x in lastData] or oldMember["status"] != member["status"]:
-                    Send.sendOnlineMsg(member["username"], member["status"])
+                    self.sendOnlineMsg(member["username"], member["status"])
             except Exception as e:
                 print(f'Online Message failed because of [{str(e)}]')
         if (lastData is None or not any([x["channel_id"] == None for x in lastData])) and any([x["channel_id"] != None for x in data]):
-            Send.sendOnlineMsg(str(sum([x["channel_id"] == None for x in data])), "in channel")
+            self.sendOnlineMsg(str(sum([x["channel_id"] == None for x in data])), "in channel")
 
-    def sendOnlineMsg(name,status):
-        bot = telegram.Bot(token=CONFIG["bot_token"])
-        subscribers = DbApi.subscribers(name)
+    def sendOnlineMsg(self, name,status):
+        subscribers = self.dbApi.subscribers(name)
         msg = f'{name} now {status}'
         print(msg,subscribers)
         for chat_id in subscribers:
             try:
-                bot.sendMessage(chat_id=chat_id, text=msg)
+                self.bot.sendMessage(chat_id=chat_id, text=msg)
             except Exception as e:
                 print(f'Online Message failed because of [{str(e)}]')
