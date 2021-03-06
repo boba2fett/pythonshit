@@ -26,27 +26,62 @@ class DbApi():
         return requests.post(self.dburl+"/log/last/timestamp", json={"username": username}, auth=self.auth).json()
 
     def subscribers(self, dc_user):
-        return requests.post(self.dburl+"/subscribe/distinct/chat_id", json={"dc_user": dc_user}, auth=self.auth).json()
+        chat_ids = requests.post(self.dburl+"/subscribe/distinct/chat_id", json={"dc_user": dc_user}, auth=self.auth).json()
+        potential = requests.post(self.dburl+"/subscribe/filter", json={
+            "dc_user": dc_user,
+            "chat_id": {"$in": chat_ids},
+            "active": True
+        }, auth=self.auth).json()
+        potential_not = requests.post(self.dburl+"/subscribe/filter", json={
+            "dc_user": dc_user,
+            "chat_id": {"$in": chat_ids},
+            "active": False
+        }, auth=self.auth).json()
+        subscribers = list()
+        for subscribed in potential:
+            #not_subscribed = potential_not.find(x => x["chat_id"] == subsc["chat_id"])
+            not_subscribed = [x for x in potential_not if x["chat_id"] == subscribed["chat_id"]]
+            not_subscribed = not_subscribed[0] if len(not_subscribed) > 0 else None
+            if not_subscribed is None or subscribed["timestamp"] > not_subscribed["timestamp"]: 
+                subscribers += [subscribed["chat_id"]]
+        return subscribers
 
     def newSubscriber(self, chat_id,dc_user, username, first_name, last_name):
-        requests.post(self.dburl+"/subscribe/insert", auth=self.auth, json=
-            [{
-                "timestamp": time.time(),
-                "chat_id": chat_id,
-                "dc_user": dc_user,
-                "username": username,
-                "first_name": first_name,
-                "last_name": last_name
-            }]
-        )
-    
-    def rmSubscriber(self, chat_id, dc_user):
-        requests.post(self.dburl+"/subscribe/delete", auth=self.auth, json=
+        state = requests.post(self.dburl+"/subscribe/last/timestamp", auth=self.auth, json=
             {
                 "chat_id": chat_id,
                 "dc_user": dc_user
             }
-        )
+        ).json()
+        if state is None or not state["active"]:
+            requests.post(self.dburl+"/subscribe/insert", auth=self.auth, json=
+                [{
+                    "timestamp": time.time(),
+                    "chat_id": chat_id,
+                    "dc_user": dc_user,
+                    "username": username,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "active": True
+                }]
+            )
+
+    def rmSubscriber(self, chat_id, dc_user):
+        state = requests.post(self.dburl+"/subscribe/last/timestamp", auth=self.auth, json=
+            {
+                "chat_id": chat_id,
+                "dc_user": dc_user
+            }
+        ).json()
+        if state is None or state["active"]:
+            requests.post(self.dburl+"/subscribe/insert", auth=self.auth, json=
+                [{
+                    "timestamp": time.time(),
+                    "chat_id": chat_id,
+                    "dc_user": dc_user,
+                    "active": False
+                }]
+            )
 
     def test(self):
         #try:
@@ -68,3 +103,6 @@ until: [{until}]
 """
         else:
             return "Not used"
+
+    def adminStatus_for(self, dc_user):
+        return self.subscribers(dc_user)

@@ -13,6 +13,14 @@ content-type: application/json
     "val": {"$regex": "^test.*"}
 }
 ###
+POST http://localhost:6969/dcNotifyTg2Fett/log/one HTTP/1.1
+Authorization: Basic U P
+content-type: application/json
+
+{
+    "val": {"$regex": "^test.*"}
+}
+###
 GET http://localhost:6969/dcNotifyTg2Fett/log HTTP/1.1
 Authorization: Basic U P
 ###

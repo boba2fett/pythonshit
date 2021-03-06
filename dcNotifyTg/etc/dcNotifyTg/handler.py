@@ -33,8 +33,18 @@ last_name: {last_name}
 def status(update, context):
     chat_id = update.effective_chat.id
     if chat_id == CONFIG["chat_id"]:
-        msg = dbApi.adminStatus()
-        context.bot.send_message(text=msg,chat_id=chat_id)
+        text = update.message.text
+        print(text)
+        if "/status " in text:
+            name = text.replace("/status ","")
+            print(name)
+            if name:
+                print(name)
+                msg = str(dbApi.adminStatus_for(name))
+                context.bot.send_message(text=msg,chat_id=chat_id)
+        else:
+            msg = dbApi.adminStatus()
+            context.bot.send_message(text=msg,chat_id=chat_id)
     else:
         msg = "This is maybe not the right chat"
         context.bot.send_message(text=msg,chat_id=chat_id)
