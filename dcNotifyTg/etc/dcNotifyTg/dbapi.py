@@ -20,30 +20,46 @@ class DbApi():
         return requests.post(self.dburl+"/subscribe/distinct/dc_user", json={}, auth=self.auth).json()
 
     def chatSubscribedUsers(self, chat_id):
-        return requests.post(self.dburl+"/subscribe/filter", json={"chat_id": chat_id}, auth=self.auth).json()
+        dc_users = requests.post(self.dburl+"/subscribe/distinct/dc_user", json={"chat_id": chat_id}, auth=self.auth).json()
+        subscribed = list()
+        for dc_user in dc_users:
+            potential = requests.post(self.dburl+"/subscribe/last/timestamp", json={
+                "dc_user": dc_user,
+                "chat_id": chat_id,
+                "active": True
+            }, auth=self.auth).json()
+
+            potential_not = requests.post(self.dburl+"/subscribe/last/timestamp", json={
+                "dc_user": dc_user,
+                "chat_id": chat_id,
+                "active": False
+            }, auth=self.auth).json()
+
+            if potential and (not potential_not or potential["timestamp"] > potential_not["timestamp"]):
+                subscribed += [dc_user]
+        return subscribed
 
     def lastState(self, username):
         return requests.post(self.dburl+"/log/last/timestamp", json={"username": username}, auth=self.auth).json()
 
     def subscribers(self, dc_user):
         chat_ids = requests.post(self.dburl+"/subscribe/distinct/chat_id", json={"dc_user": dc_user}, auth=self.auth).json()
-        potential = requests.post(self.dburl+"/subscribe/filter", json={
-            "dc_user": dc_user,
-            "chat_id": {"$in": chat_ids},
-            "active": True
-        }, auth=self.auth).json()
-        potential_not = requests.post(self.dburl+"/subscribe/filter", json={
-            "dc_user": dc_user,
-            "chat_id": {"$in": chat_ids},
-            "active": False
-        }, auth=self.auth).json()
         subscribers = list()
-        for subscribed in potential:
-            #not_subscribed = potential_not.find(x => x["chat_id"] == subsc["chat_id"])
-            not_subscribed = [x for x in potential_not if x["chat_id"] == subscribed["chat_id"]]
-            not_subscribed = not_subscribed[0] if len(not_subscribed) > 0 else None
-            if not_subscribed is None or subscribed["timestamp"] > not_subscribed["timestamp"]: 
-                subscribers += [subscribed["chat_id"]]
+        for chat_id in chat_ids:
+            potential = requests.post(self.dburl+"/subscribe/last/timestamp", json={
+                "dc_user": dc_user,
+                "chat_id": chat_id,
+                "active": True
+            }, auth=self.auth).json()
+
+            potential_not = requests.post(self.dburl+"/subscribe/last/timestamp", json={
+                "dc_user": dc_user,
+                "chat_id": chat_id,
+                "active": False
+            }, auth=self.auth).json()
+
+            if potential and (not potential_not or potential["timestamp"] > potential_not["timestamp"]):
+                subscribers += [chat_id]
         return subscribers
 
     def newSubscriber(self, chat_id,dc_user, username, first_name, last_name):
@@ -84,10 +100,10 @@ class DbApi():
             )
 
     def test(self):
-        #try:
-            return f"Started, db seems to work\nStatus:\n"+self.adminStatus()
-        #except Exception as e:
-            #return f"Started, db doesn't seem to work: {e}"
+        try:
+            return f"db seems to work\nStatus:\n"+self.adminStatus()
+        except Exception as e:
+            return f"db doesn't seem to work: {e}"
 
 
     def adminStatus(self):

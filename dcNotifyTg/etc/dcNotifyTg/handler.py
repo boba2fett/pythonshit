@@ -10,11 +10,6 @@ def start(update, context):
 def help(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Commands:\n/info\n/status\n/subscribe {username}\n/unsubscribe {username}\n/subscribtions\necho")
 
-def echo(update, context):
-    msg = update.message.text
-    msg = msg.replace("echo ","")
-    context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
-
 def info(update, context):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -37,9 +32,7 @@ def status(update, context):
         print(text)
         if "/status " in text:
             name = text.replace("/status ","")
-            print(name)
             if name:
-                print(name)
                 msg = str(dbApi.adminStatus_for(name))
                 context.bot.send_message(text=msg,chat_id=chat_id)
         else:
@@ -50,8 +43,8 @@ def status(update, context):
         context.bot.send_message(text=msg,chat_id=chat_id)
 
 def on_error(update, context):
-    print(f"Error: {context.error}")
-    context.bot.send_message(text=f"Error: {context.error}",chat_id=CONFIG["chat_id"])
+    print(f"dcNotifyTg Error: <<{context.error}>>")
+    context.bot.send_message(text=f"dcNotifyTg Error: <<{context.error}>>",chat_id=CONFIG["chat_id"])
 
 def subscribtions(update, context):
     chat_id=update.effective_chat.id
