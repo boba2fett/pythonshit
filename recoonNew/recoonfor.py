@@ -1,56 +1,30 @@
 #!/usr/bin/env python3
-from matplotlib.dates import DAYS_PER_MONTH
-from matplotlib.ticker import scale_range
 import requests
 import time
-import json
-import os
 import sys
 import datetime
-from systemd.journal import JournalHandler
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Boolean
-from sqlalchemy.sql import func
 
 #import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as dates
-import numpy as np
 
-from config import CONFIG
+import recoonlib
+states=recoonlib.states
 
-db = CONFIG["db_server"]
-user = CONFIG["db_server_user"]
-pwd = CONFIG["db_server_pass"]
-auth = (user, pwd)
-
-states=list()#["idle","dnd"]
+dataset=recoonlib.dataset
 
 users = sys.argv[1::]
 print(users)
 
-def getAll():
-    return requests.get(db+"/log",  auth=auth).json()
-
-dataset=getAll()
-
-def todate(x):
-    return datetime.datetime.fromtimestamp(x)
-
-for element in dataset:
-    element["timestamp"] = todate(element["timestamp"])
-
-datetime.datetime.now().time()
-
 def per_day():
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
-    days=list(set(e["timestamp"].date() for e in dataset))
-    days.sort()
+    days=recoonlib.days()
     for user in users:
         datax=list()
         datay=list()
         for day in days:
-            res = len([e for e in dataset if e["timestamp"].date() == day and e["username"]==user])
+            res = len(recoonlib.day_user(day, user))
             datax+=[day]
             datay+=[res]
         datax = dates.date2num(datax)
@@ -60,7 +34,7 @@ def per_day():
             datax=list()
             datay=list()
             for day in days:
-                res=len([e for e in dataset if e["timestamp"].date() == day and e["username"]==user and e["status"]==status])
+                res=len(recoonlib.day_user_status(day, user, status))
                 datax+=[day]
                 datay+=[res]
             datax = dates.date2num(datax)
@@ -77,24 +51,23 @@ def per_day():
 def per_weekday():
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
-    days=list(set(e["timestamp"].weekday() for e in dataset))
-    days.sort()
+    wdays=recoonlib.weekdays()
     datax=list()
     for user in users:
         datax=list()
         datay=list()
-        for day in days:
-            res = len([e for e in dataset if e["timestamp"].weekday() == day and e["username"]==user])
-            datax+=[day]
+        for wday in wdays:
+            res = len(recoonlib.weekday_user(wday, user))
+            datax+=[wday]
             datay+=[res]
         ax1.plot(datax,datay,label=user,linewidth=1)
 
         for status in states:
             datax=list()
             datay=list()
-            for day in days:
-                res=len([e for e in dataset if e["timestamp"].weekday() == day and e["username"]==user and e["status"]==status])
-                datax+=[day]
+            for wday in wdays:
+                res=len(recoonlib.weekday_user_status(wday, user, status))
+                datax+=[wday]
                 datay+=[res]
             ax1.plot(datax,datay,label=f"{user}:{status}",linewidth=1)
     
@@ -109,14 +82,13 @@ def per_weekday():
 def per_time():
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
-    times=list(set(e["timestamp"].time() for e in dataset))
-    times.sort()
+    times=recoonlib.times()
     for user in users:
         datax=list()
         datay=list()
         for time in times:
             res = len([e for e in dataset if e["timestamp"].time() == time and e["username"]==user])
-            t=datetime.datetime(year=1970,month=1,day=1,hour=time.hour,minute=time.minute)
+            t=recoonlib.time_to_datetime(time)
             datax+=[t]#[time]
             datay+=[res]
         datax = dates.date2num(datax)
@@ -127,7 +99,7 @@ def per_time():
             datay=list()
             for time in times:
                 res = len([e for e in dataset if e["timestamp"].time() == time and e["username"]==user and e["status"]==status])
-                t=datetime.datetime(year=1970,month=1,day=1,hour=time.hour,minute=time.minute)
+                t=recoonlib.time_to_datetime(time)
                 datax+=[t]#[time]
                 datay+=[res]
             datax = dates.date2num(datax)
@@ -146,17 +118,15 @@ def per_week():
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
 
-    wdays=list(set(e["timestamp"].weekday() for e in dataset))
-    wdays.sort()
-    times=list(set(e["timestamp"].time() for e in dataset))
-    times.sort()
+    wdays=recoonlib.weekdays()
+    times=recoonlib.times()
     for user in users:
         datax=list()
         datay=list()
-        for day in wdays:
+        for wday in wdays:
             for time in times:
-                res = len([e for e in dataset if e["timestamp"].weekday() == day and e["timestamp"].time() == time and e["username"]==user])
-                t=datetime.datetime(year=1970,month=1,day=day+4,hour=time.hour,minute=time.minute)
+                res = len(recoonlib.weekday_time_user(wday, time, user))
+                t=datetime.datetime(year=1970,month=1,wday=wday+4,hour=time.hour,minute=time.minute)
                 datax+=[t]
                 datay+=[res]
         ax1.plot(datax,datay,label=user,linewidth=1)
@@ -164,17 +134,17 @@ def per_week():
         for status in states:
             datax=list()
             datay=list()
-            for day in wdays:
+            for wday in wdays:
                 for time in times:
-                    res = len([e for e in dataset if e["timestamp"].weekday() == day and e["timestamp"].time() == time and e["username"]==user and e["status"]==status])
-                    t=datetime.datetime(year=1970,month=1,day=day+4,hour=time.hour,minute=time.minute)
+                    res = len(recoonlib.weekday_time_user_status(wday, time, user, status))
+                    t=datetime.datetime(year=1970,month=1,wday=wday+4,hour=time.hour,minute=time.minute)
                     datax+=[t]
                     datay+=[res]
             ax1.plot(datax,datay,label=f"{user}:{status}",linewidth=1)
     
     plt.xlabel("Weekday:Time")
     plt.ylabel("Hits Online at this time")
-    plt.xticks([datetime.datetime(year=1970,month=1,day=day+4,hour=3*h)for h in range (0,24//3) for day in range(0,7)])
+    plt.xticks([datetime.datetime(year=1970,month=1,wday=wday+4,hour=3*h)for h in range (0,24//3) for wday in range(0,7)])
     myFmt = dates.DateFormatter('%H')
     plt.gca().xaxis.set_major_formatter(myFmt)
     plt.legend(bbox_to_anchor=(1,1), loc="upper left")
@@ -238,7 +208,7 @@ def total():
     plt.show()
 
 def per_day_median2():
-    days=list(set(e["timestamp"].date() for e in dataset))
+    days=recoonlib.days()
     days.sort()
     bps=list()
     colors = plt.rcParams["axes.prop_cycle"]()
@@ -251,7 +221,7 @@ def per_day_median2():
     for user in users:
         data=list()
         for day in days:
-            res=len([e for e in dataset if e["timestamp"].date() == day and e["username"]==user])
+            res=len(recoonlib.day_user(day, user))
             data+=[res]
         data=[x*5/60 for x in data]
         bp=ax1.boxplot(data, vert=0,patch_artist=True,positions=[accOffset], widths=offset)
@@ -280,12 +250,12 @@ def per_weekday_median3():
         accOffset=-0.2
     for user in users:
         boxdata=list()
-        for w in range(0,7):
+        for wday in recoonlib.weekdays():
             data=list()
-            days=list(set(e["timestamp"].date() for e in dataset if e["timestamp"].weekday()==w))
+            days=list(set(e["timestamp"].date() for e in dataset if e["timestamp"].weekday()==wday))
             days.sort()
             for day in days:
-                res=len([e for e in dataset if e["timestamp"].date() == day and e["username"]==user])
+                res=len(recoonlib.day_user(day, user))
                 data+=[res]
             data=[x*5/60 for x in data]
             boxdata+=[data]
