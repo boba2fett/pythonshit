@@ -72,7 +72,7 @@ def day_user(day, user):
 _day_user_status_cache=dict()
 
 def _day_user_status(day, user, status):
-    return [e for e in dataset if e["timestamp"].date() == day and e["username"]==user and e["status"]==status]
+    return [e for e in day_user(day, user) if e["status"]==status]
 
 def day_user_status(day, user, status):
     key=str(day)+user+status
@@ -96,7 +96,7 @@ def weekday_user(weekday, user):
 _weekday_user_status_cache=dict()
 
 def _weekday_user_status(weekday, user, status):
-    return [e for e in dataset if e["timestamp"].weekday() == weekday and e["username"]==user and e["status"]==status]
+    return [e for e in weekday_user(weekday, user) if e["status"]==status]
 
 def weekday_user_status(weekday, user, status):
     key=str(weekday)+user+status
@@ -120,7 +120,7 @@ def time_user(time, user):
 _time_user_status_cache=dict()
 
 def _time_user_status(time, user, status):
-    return [e for e in dataset if e["timestamp"].time() == time and e["username"]==user and e["status"]==status]
+    return [e for e in time_user(time, user) if e["status"]==status]
 
 def time_user_status(time, user, status):
     key=str(time)+user+status
@@ -132,7 +132,7 @@ def time_user_status(time, user, status):
 _weekday_time_user_cache=dict()
 
 def _weekday_time_user(weekday, time, user):
-    return [e for e in dataset if e["timestamp"].weekday() == weekday and e["timestamp"].time() == time and e["username"]==user]
+    return [e for e in weekday_user(weekday, user) if e["timestamp"].time() == time]
 
 def weekday_time_user(weekday, time, user):
     key=str(weekday)+str(time)+user
@@ -144,7 +144,7 @@ def weekday_time_user(weekday, time, user):
 _weekday_time_user_status_cache=dict()
 
 def _weekday_time_user_status(weekday, time, user, status):
-    return [e for e in dataset if e["timestamp"].weekday() == weekday and e["timestamp"].time() == time and e["username"]==user and e["status"]==status]
+    return [e for e in weekday_time_user(weekday, time, user) if e["status"]==status]
 
 def weekday_time_user_status(weekday, time, user, status):
     key=str(weekday)+str(time)+user+status
